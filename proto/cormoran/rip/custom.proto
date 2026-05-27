@@ -57,6 +57,34 @@ message GetCurrentCpiResponse {
     uint32 cpi = 1; // Current PMW3610 CPI value
 }
 
+message EncoderBinding {
+    int32 behavior_id = 1; // ZMK behavior local ID
+    uint32 param1 = 2;
+    uint32 param2 = 3;
+}
+
+message EncoderLayerBindings {
+    uint32 layer_id = 1;
+    EncoderBinding binding = 2;
+}
+
+message GetEncoderBindingsRequest {
+    // Empty - returns encoder bindings for all layers
+}
+
+message GetEncoderBindingsResponse {
+    repeated EncoderLayerBindings layers = 1;
+}
+
+message SetEncoderBindingRequest {
+    uint32 layer_id = 1;
+    EncoderBinding binding = 2;
+}
+
+message SetEncoderBindingResponse {
+    // Empty on success
+}
+
 message LayerInfo {
     uint32 index = 1; // Layer index
     string name = 2;  // Layer name
@@ -235,6 +263,8 @@ message Request {
         SetXInvertRequest set_x_invert = 18;
         SetYInvertRequest set_y_invert = 19;
         GetCurrentCpiRequest get_current_cpi = 20;
+        GetEncoderBindingsRequest get_encoder_bindings = 21;
+        SetEncoderBindingRequest set_encoder_binding = 22;
     }
 }
 
@@ -263,6 +293,8 @@ message Response {
         SetXInvertResponse set_x_invert = 19;
         SetYInvertResponse set_y_invert = 20;
         GetCurrentCpiResponse get_current_cpi = 21;
+        GetEncoderBindingsResponse get_encoder_bindings = 22;
+        SetEncoderBindingResponse set_encoder_binding = 23;
     }
 }
 

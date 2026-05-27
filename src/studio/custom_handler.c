@@ -11,7 +11,9 @@
 #include <zephyr/logging/log.h>
 #include <zmk/event_manager.h>
 #include <zmk/events/input_processor_state_changed.h>
+#include <zmk/behavior.h>
 #include <zmk/keymap.h>
+#include <zmk/sensors.h>
 #include <zmk/pointing/input_processor_runtime.h>
 #include <zmk/studio/custom.h>
 LOG_MODULE_DECLARE(zmk, CONFIG_ZMK_LOG_LEVEL);
@@ -78,6 +80,10 @@ static int handle_set_y_invert(const cormoran_rip_SetYInvertRequest *req,
                                cormoran_rip_Response *resp);
 static int handle_get_current_cpi(const cormoran_rip_GetCurrentCpiRequest *req,
                                   cormoran_rip_Response *resp);
+static int handle_get_encoder_bindings(const cormoran_rip_GetEncoderBindingsRequest *req,
+                                       cormoran_rip_Response *resp);
+static int handle_set_encoder_binding(const cormoran_rip_SetEncoderBindingRequest *req,
+                                      cormoran_rip_Response *resp);
 
 /**
  * Main request handler for the custom RPC subsystem.
@@ -164,6 +170,12 @@ static bool rip_rpc_handle_request(const zmk_custom_CallRequest *raw_request,
         break;
     case cormoran_rip_Request_get_current_cpi_tag:
         rc = handle_get_current_cpi(&req.request_type.get_current_cpi, resp);
+        break;
+    case cormoran_rip_Request_get_encoder_bindings_tag:
+        rc = handle_get_encoder_bindings(&req.request_type.get_encoder_bindings, resp);
+        break;
+    case cormoran_rip_Request_set_encoder_binding_tag:
+        rc = handle_set_encoder_binding(&req.request_type.set_encoder_binding, resp);
         break;
     default:
         LOG_WRN("Unsupported rip request type: %d", req.which_request_type);
@@ -817,5 +829,107 @@ static int handle_set_xy_swap_enabled(const cormoran_rip_SetXySwapEnabledRequest
 
     return 0;
 }
+
+#if ZMK_KEYMAP_HAS_SENSORS
+
+static bool encode_encoder_layer_bindings(pb_ostream_t *stream, const pb_field_t *field,
+                                          void *const *arg) {
+    for (zmk_keymap_layer_index_t l = 0; l < ZMK_KEYMAP_LAYERS_LEN; l++) {
+        zmk_keymap_layer_id_t layer_id = zmk_keymap_layer_index_to_id(l);
+        if (layer_id == ZMK_KEYMAP_LAYER_ID_INVAL) {
+            break;
+        }
+
+        const struct zmk_behavior_binding *binding =
+            zmk_keymap_get_layer_sensor_binding_at_idx(layer_id, 0);
+        if (!binding || !binding->behavior_dev) {
+            continue;
+        }
+
+        cormoran_rip_EncoderLayerBindings entry = cormoran_rip_EncoderLayerBindings_init_zero;
+        entry.layer_id = layer_id;
+        entry.has_binding = true;
+        entry.binding.behavior_id = zmk_behavior_get_local_id(binding->behavior_dev);
+        entry.binding.param1 = binding->param1;
+        entry.binding.param2 = binding->param2;
+
+        if (!pb_encode_tag_for_field(stream, field)) {
+            return false;
+        }
+        if (!pb_encode_submessage(stream, cormoran_rip_EncoderLayerBindings_fields, &entry)) {
+            return false;
+        }
+    }
+    return true;
+}
+
+static int handle_get_encoder_bindings(const cormoran_rip_GetEncoderBindingsRequest *req,
+                                       cormoran_rip_Response *resp) {
+    ARG_UNUSED(req);
+    LOG_DBG("Getting encoder bindings");
+
+    cormoran_rip_GetEncoderBindingsResponse result =
+        cormoran_rip_GetEncoderBindingsResponse_init_zero;
+    result.layers.funcs.encode = encode_encoder_layer_bindings;
+
+    resp->which_response_type = cormoran_rip_Response_get_encoder_bindings_tag;
+    resp->response_type.get_encoder_bindings = result;
+    return 0;
+}
+
+static int handle_set_encoder_binding(const cormoran_rip_SetEncoderBindingRequest *req,
+                                      cormoran_rip_Response *resp) {
+    LOG_DBG("Setting encoder binding for layer_id=%d", req->layer_id);
+
+    if (!req->has_binding) {
+        LOG_WRN("SetEncoderBinding: missing binding");
+        return -EINVAL;
+    }
+
+    const char *behavior_name =
+        zmk_behavior_find_behavior_name_from_local_id(req->binding.behavior_id);
+    if (!behavior_name) {
+        LOG_WRN("SetEncoderBinding: unknown behavior_id=%d", req->binding.behavior_id);
+        return -EINVAL;
+    }
+
+    struct zmk_behavior_binding binding = {
+        .behavior_dev = behavior_name,
+        .param1 = req->binding.param1,
+        .param2 = req->binding.param2,
+    };
+
+    int ret = zmk_keymap_set_layer_sensor_binding_at_idx(req->layer_id, 0, binding);
+    if (ret < 0) {
+        LOG_WRN("SetEncoderBinding: set failed (%d)", ret);
+        return ret;
+    }
+
+    resp->which_response_type = cormoran_rip_Response_set_encoder_binding_tag;
+    resp->response_type.set_encoder_binding =
+        (cormoran_rip_SetEncoderBindingResponse)cormoran_rip_SetEncoderBindingResponse_init_zero;
+    return 0;
+}
+
+#else
+
+static int handle_get_encoder_bindings(const cormoran_rip_GetEncoderBindingsRequest *req,
+                                       cormoran_rip_Response *resp) {
+    ARG_UNUSED(req);
+    cormoran_rip_GetEncoderBindingsResponse result =
+        cormoran_rip_GetEncoderBindingsResponse_init_zero;
+    resp->which_response_type = cormoran_rip_Response_get_encoder_bindings_tag;
+    resp->response_type.get_encoder_bindings = result;
+    return 0;
+}
+
+static int handle_set_encoder_binding(const cormoran_rip_SetEncoderBindingRequest *req,
+                                      cormoran_rip_Response *resp) {
+    ARG_UNUSED(req);
+    ARG_UNUSED(resp);
+    return -ENOTSUP;
+}
+
+#endif /* ZMK_KEYMAP_HAS_SENSORS */
 
 #endif // CONFIG_ZMK_RUNTIME_INPUT_PROCESSOR
