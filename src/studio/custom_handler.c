@@ -18,6 +18,8 @@ LOG_MODULE_DECLARE(zmk, CONFIG_ZMK_LOG_LEVEL);
 
 #if IS_ENABLED(CONFIG_ZMK_RUNTIME_INPUT_PROCESSOR)
 
+__weak uint32_t linea40_dpi_get_current(void) { return 0; }
+
 /**
  * Metadata for the custom subsystem.
  */
@@ -74,6 +76,8 @@ static int handle_set_x_invert(const cormoran_rip_SetXInvertRequest *req,
                                cormoran_rip_Response *resp);
 static int handle_set_y_invert(const cormoran_rip_SetYInvertRequest *req,
                                cormoran_rip_Response *resp);
+static int handle_get_current_cpi(const cormoran_rip_GetCurrentCpiRequest *req,
+                                  cormoran_rip_Response *resp);
 
 /**
  * Main request handler for the custom RPC subsystem.
@@ -151,11 +155,15 @@ static bool rip_rpc_handle_request(const zmk_custom_CallRequest *raw_request,
         break;
     case cormoran_rip_Request_set_xy_swap_enabled_tag:
         rc = handle_set_xy_swap_enabled(&req.request_type.set_xy_swap_enabled, resp);
+        break;
     case cormoran_rip_Request_set_x_invert_tag:
         rc = handle_set_x_invert(&req.request_type.set_x_invert, resp);
         break;
     case cormoran_rip_Request_set_y_invert_tag:
         rc = handle_set_y_invert(&req.request_type.set_y_invert, resp);
+        break;
+    case cormoran_rip_Request_get_current_cpi_tag:
+        rc = handle_get_current_cpi(&req.request_type.get_current_cpi, resp);
         break;
     default:
         LOG_WRN("Unsupported rip request type: %d", req.which_request_type);
@@ -245,6 +253,7 @@ static int handle_get_input_processor(const cormoran_rip_GetInputProcessorReques
         return ret;
     }
 
+    result.has_processor = true;
     result.processor.id = req->id;
     strncpy(result.processor.name, name, sizeof(result.processor.name) - 1);
     result.processor.name[sizeof(result.processor.name) - 1] = '\0';
@@ -264,6 +273,22 @@ static int handle_get_input_processor(const cormoran_rip_GetInputProcessorReques
 
     resp->which_response_type = cormoran_rip_Response_get_input_processor_tag;
     resp->response_type.get_input_processor = result;
+
+    return 0;
+}
+
+/**
+ * Handle getting the current sensor CPI value.
+ */
+static int handle_get_current_cpi(const cormoran_rip_GetCurrentCpiRequest *req,
+                                  cormoran_rip_Response *resp) {
+    ARG_UNUSED(req);
+
+    cormoran_rip_GetCurrentCpiResponse result = cormoran_rip_GetCurrentCpiResponse_init_zero;
+    result.cpi = linea40_dpi_get_current();
+
+    resp->which_response_type = cormoran_rip_Response_get_current_cpi_tag;
+    resp->response_type.get_current_cpi = result;
 
     return 0;
 }

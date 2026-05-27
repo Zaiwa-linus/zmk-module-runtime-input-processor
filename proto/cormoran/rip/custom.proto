@@ -49,6 +49,14 @@ message GetInputProcessorRequest {
 
 message GetInputProcessorResponse { InputProcessorInfo processor = 1; }
 
+message GetCurrentCpiRequest {
+    // Empty - returns the current sensor CPI/DPI value
+}
+
+message GetCurrentCpiResponse {
+    uint32 cpi = 1; // Current PMW3610 CPI value
+}
+
 message LayerInfo {
     uint32 index = 1; // Layer index
     string name = 2;  // Layer name
@@ -226,6 +234,7 @@ message Request {
         SetXySwapEnabledRequest set_xy_swap_enabled = 17;
         SetXInvertRequest set_x_invert = 18;
         SetYInvertRequest set_y_invert = 19;
+        GetCurrentCpiRequest get_current_cpi = 20;
     }
 }
 
@@ -253,6 +262,7 @@ message Response {
         SetXySwapEnabledResponse set_xy_swap_enabled = 18;
         SetXInvertResponse set_x_invert = 19;
         SetYInvertResponse set_y_invert = 20;
+        GetCurrentCpiResponse get_current_cpi = 21;
     }
 }
 
