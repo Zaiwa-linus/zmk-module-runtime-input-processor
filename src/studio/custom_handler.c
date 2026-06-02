@@ -21,6 +21,7 @@ LOG_MODULE_DECLARE(zmk, CONFIG_ZMK_LOG_LEVEL);
 #if IS_ENABLED(CONFIG_ZMK_RUNTIME_INPUT_PROCESSOR)
 
 __weak uint32_t linea40_dpi_get_current(void) { return 0; }
+__weak void linea40_dpi_set_current(uint32_t cpi) { ARG_UNUSED(cpi); }
 
 /**
  * Metadata for the custom subsystem.
@@ -79,6 +80,8 @@ static int handle_set_x_invert(const cormoran_rip_SetXInvertRequest *req,
 static int handle_set_y_invert(const cormoran_rip_SetYInvertRequest *req,
                                cormoran_rip_Response *resp);
 static int handle_get_current_cpi(const cormoran_rip_GetCurrentCpiRequest *req,
+                                  cormoran_rip_Response *resp);
+static int handle_set_current_cpi(const cormoran_rip_SetCurrentCpiRequest *req,
                                   cormoran_rip_Response *resp);
 static int handle_get_encoder_bindings(const cormoran_rip_GetEncoderBindingsRequest *req,
                                        cormoran_rip_Response *resp);
@@ -170,6 +173,9 @@ static bool rip_rpc_handle_request(const zmk_custom_CallRequest *raw_request,
         break;
     case cormoran_rip_Request_get_current_cpi_tag:
         rc = handle_get_current_cpi(&req.request_type.get_current_cpi, resp);
+        break;
+    case cormoran_rip_Request_set_current_cpi_tag:
+        rc = handle_set_current_cpi(&req.request_type.set_current_cpi, resp);
         break;
     case cormoran_rip_Request_get_encoder_bindings_tag:
         rc = handle_get_encoder_bindings(&req.request_type.get_encoder_bindings, resp);
@@ -302,6 +308,20 @@ static int handle_get_current_cpi(const cormoran_rip_GetCurrentCpiRequest *req,
     resp->which_response_type = cormoran_rip_Response_get_current_cpi_tag;
     resp->response_type.get_current_cpi = result;
 
+    return 0;
+}
+
+/**
+ * Handle setting the current sensor CPI value.
+ */
+static int handle_set_current_cpi(const cormoran_rip_SetCurrentCpiRequest *req,
+                                  cormoran_rip_Response *resp) {
+    LOG_DBG("Setting current CPI to %u", req->cpi);
+    linea40_dpi_set_current(req->cpi);
+
+    resp->which_response_type = cormoran_rip_Response_set_current_cpi_tag;
+    resp->response_type.set_current_cpi =
+        (cormoran_rip_SetCurrentCpiResponse)cormoran_rip_SetCurrentCpiResponse_init_zero;
     return 0;
 }
 

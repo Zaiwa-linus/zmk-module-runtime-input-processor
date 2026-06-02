@@ -57,6 +57,14 @@ message GetCurrentCpiResponse {
     uint32 cpi = 1; // Current PMW3610 CPI value
 }
 
+message SetCurrentCpiRequest {
+    uint32 cpi = 1; // New CPI value to set
+}
+
+message SetCurrentCpiResponse {
+    // Empty on success
+}
+
 message EncoderBinding {
     int32 behavior_id = 1; // ZMK behavior local ID
     uint32 param1 = 2;
@@ -265,6 +273,7 @@ message Request {
         GetCurrentCpiRequest get_current_cpi = 20;
         GetEncoderBindingsRequest get_encoder_bindings = 21;
         SetEncoderBindingRequest set_encoder_binding = 22;
+        SetCurrentCpiRequest set_current_cpi = 23;
     }
 }
 
@@ -295,6 +304,7 @@ message Response {
         GetCurrentCpiResponse get_current_cpi = 21;
         GetEncoderBindingsResponse get_encoder_bindings = 22;
         SetEncoderBindingResponse set_encoder_binding = 23;
+        SetCurrentCpiResponse set_current_cpi = 24;
     }
 }
 
