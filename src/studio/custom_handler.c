@@ -21,7 +21,10 @@ LOG_MODULE_DECLARE(zmk, CONFIG_ZMK_LOG_LEVEL);
 #if IS_ENABLED(CONFIG_ZMK_RUNTIME_INPUT_PROCESSOR)
 
 __weak uint32_t linea40_dpi_get_current(void) { return 0; }
-__weak void linea40_dpi_set_current(uint32_t cpi) { ARG_UNUSED(cpi); }
+__weak int linea40_dpi_set_current(uint32_t cpi) {
+    ARG_UNUSED(cpi);
+    return -ENOTSUP;
+}
 
 /**
  * Metadata for the custom subsystem.
@@ -317,7 +320,10 @@ static int handle_get_current_cpi(const cormoran_rip_GetCurrentCpiRequest *req,
 static int handle_set_current_cpi(const cormoran_rip_SetCurrentCpiRequest *req,
                                   cormoran_rip_Response *resp) {
     LOG_DBG("Setting current CPI to %u", req->cpi);
-    linea40_dpi_set_current(req->cpi);
+    int ret = linea40_dpi_set_current(req->cpi);
+    if (ret < 0) {
+        return ret;
+    }
 
     resp->which_response_type = cormoran_rip_Response_set_current_cpi_tag;
     resp->response_type.set_current_cpi =
