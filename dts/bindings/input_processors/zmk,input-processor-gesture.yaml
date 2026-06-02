@@ -24,3 +24,7 @@ properties:
     description: |
       Inactivity timeout (ms) after first direction is captured.
       Resets the second-direction accumulator so the user can make a clean stroke.
+
+  track-remainders:
+    type: boolean
+    description: Not used by gesture processor. Declared for input_listener.c compatibility.
