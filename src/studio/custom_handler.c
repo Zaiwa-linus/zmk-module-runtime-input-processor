@@ -15,6 +15,7 @@
 #include <zmk/keymap.h>
 #include <zmk/sensors.h>
 #include <zmk/pointing/input_processor_runtime.h>
+#include <zmk/pointing/gesture_processor.h>
 #include <zmk/studio/custom.h>
 LOG_MODULE_DECLARE(zmk, CONFIG_ZMK_LOG_LEVEL);
 
@@ -89,6 +90,10 @@ static int handle_set_current_cpi(const cormoran_rip_SetCurrentCpiRequest *req,
 static int handle_get_encoder_bindings(const cormoran_rip_GetEncoderBindingsRequest *req,
                                        cormoran_rip_Response *resp);
 static int handle_set_encoder_binding(const cormoran_rip_SetEncoderBindingRequest *req,
+                                      cormoran_rip_Response *resp);
+static int handle_get_gesture_bindings(const cormoran_rip_GetGestureBindingsRequest *req,
+                                       cormoran_rip_Response *resp);
+static int handle_set_gesture_binding(const cormoran_rip_SetGestureBindingRequest *req,
                                       cormoran_rip_Response *resp);
 
 /**
@@ -185,6 +190,12 @@ static bool rip_rpc_handle_request(const zmk_custom_CallRequest *raw_request,
         break;
     case cormoran_rip_Request_set_encoder_binding_tag:
         rc = handle_set_encoder_binding(&req.request_type.set_encoder_binding, resp);
+        break;
+    case cormoran_rip_Request_get_gesture_bindings_tag:
+        rc = handle_get_gesture_bindings(&req.request_type.get_gesture_bindings, resp);
+        break;
+    case cormoran_rip_Request_set_gesture_binding_tag:
+        rc = handle_set_gesture_binding(&req.request_type.set_gesture_binding, resp);
         break;
     default:
         LOG_WRN("Unsupported rip request type: %d", req.which_request_type);
@@ -957,5 +968,82 @@ static int handle_set_encoder_binding(const cormoran_rip_SetEncoderBindingReques
 }
 
 #endif /* ZMK_KEYMAP_HAS_SENSORS */
+
+/* ── Gesture binding RPC handlers ─────────────────────────────────────── */
+
+struct encode_gesture_bindings_ctx {
+    struct linea40_gesture_binding bindings[GESTURE_BINDINGS];
+};
+
+static bool encode_gesture_bindings_cb(pb_ostream_t *stream, const pb_field_t *field,
+                                       void *const *arg)
+{
+    const struct encode_gesture_bindings_ctx *ctx =
+        (const struct encode_gesture_bindings_ctx *)*arg;
+
+    for (int i = 0; i < GESTURE_BINDINGS; i++) {
+        cormoran_rip_GestureBinding entry = cormoran_rip_GestureBinding_init_zero;
+        entry.behavior_id = ctx->bindings[i].behavior_id;
+        entry.param1 = ctx->bindings[i].param1;
+        entry.param2 = ctx->bindings[i].param2;
+
+        if (!pb_encode_tag_for_field(stream, field)) {
+            return false;
+        }
+        if (!pb_encode_submessage(stream, cormoran_rip_GestureBinding_fields, &entry)) {
+            return false;
+        }
+    }
+    return true;
+}
+
+static int handle_get_gesture_bindings(const cormoran_rip_GetGestureBindingsRequest *req,
+                                       cormoran_rip_Response *resp)
+{
+    ARG_UNUSED(req);
+
+    static struct encode_gesture_bindings_ctx ctx;
+    int ret = linea40_gesture_get_all_bindings(ctx.bindings, GESTURE_BINDINGS);
+    if (ret < 0) {
+        return ret;
+    }
+
+    cormoran_rip_GetGestureBindingsResponse result =
+        cormoran_rip_GetGestureBindingsResponse_init_zero;
+    result.bindings.funcs.encode = encode_gesture_bindings_cb;
+    result.bindings.arg = &ctx;
+
+    resp->which_response_type = cormoran_rip_Response_get_gesture_bindings_tag;
+    resp->response_type.get_gesture_bindings = result;
+    return 0;
+}
+
+static int handle_set_gesture_binding(const cormoran_rip_SetGestureBindingRequest *req,
+                                      cormoran_rip_Response *resp)
+{
+    LOG_DBG("SetGestureBinding: dir1=%u dir2=%u", req->dir1, req->dir2);
+
+    if (!req->has_binding) {
+        LOG_WRN("SetGestureBinding: missing binding");
+        return -EINVAL;
+    }
+
+    struct linea40_gesture_binding binding = {
+        .behavior_id = req->binding.behavior_id,
+        .param1 = req->binding.param1,
+        .param2 = req->binding.param2,
+    };
+
+    int ret = linea40_gesture_set_binding((uint8_t)req->dir1, (uint8_t)req->dir2, &binding);
+    if (ret < 0) {
+        LOG_WRN("SetGestureBinding: failed (%d)", ret);
+        return ret;
+    }
+
+    resp->which_response_type = cormoran_rip_Response_set_gesture_binding_tag;
+    resp->response_type.set_gesture_binding =
+        (cormoran_rip_SetGestureBindingResponse)cormoran_rip_SetGestureBindingResponse_init_zero;
+    return 0;
+}
 
 #endif // CONFIG_ZMK_RUNTIME_INPUT_PROCESSOR

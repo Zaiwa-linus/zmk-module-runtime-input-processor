@@ -65,6 +65,30 @@ message SetCurrentCpiResponse {
     // Empty on success
 }
 
+message GestureBinding {
+    int32 behavior_id = 1; // ZMK behavior local ID (-1 = no binding)
+    uint32 param1 = 2;
+    uint32 param2 = 3;
+}
+
+message GetGestureBindingsRequest {
+    // Empty - returns all 12 gesture bindings
+}
+
+message GetGestureBindingsResponse {
+    repeated GestureBinding bindings = 1; // 12 entries in gesture_binding_idx order
+}
+
+message SetGestureBindingRequest {
+    uint32 dir1 = 1;            // 0=UP 1=DOWN 2=LEFT 3=RIGHT
+    uint32 dir2 = 2;            // same encoding, must differ from dir1
+    GestureBinding binding = 3;
+}
+
+message SetGestureBindingResponse {
+    // Empty on success
+}
+
 message EncoderBinding {
     int32 behavior_id = 1; // ZMK behavior local ID
     uint32 param1 = 2;
@@ -274,6 +298,8 @@ message Request {
         GetEncoderBindingsRequest get_encoder_bindings = 21;
         SetEncoderBindingRequest set_encoder_binding = 22;
         SetCurrentCpiRequest set_current_cpi = 23;
+        GetGestureBindingsRequest get_gesture_bindings = 25;
+        SetGestureBindingRequest set_gesture_binding = 26;
     }
 }
 
@@ -305,6 +331,8 @@ message Response {
         GetEncoderBindingsResponse get_encoder_bindings = 22;
         SetEncoderBindingResponse set_encoder_binding = 23;
         SetCurrentCpiResponse set_current_cpi = 24;
+        GetGestureBindingsResponse get_gesture_bindings = 25;
+        SetGestureBindingResponse set_gesture_binding = 26;
     }
 }
 

@@ -1,0 +1,26 @@
+description: |
+  Gesture input processor for ZMK.
+  Intercepts trackball REL_X/Y events while the gesture key is held,
+  detects two sequential directional movements, and fires the mapped binding.
+
+compatible: "zmk,input-processor-gesture"
+
+include: base.yaml
+
+properties:
+  "#input-processor-cells":
+    type: int
+    const: 0
+
+  threshold:
+    type: int
+    default: 200
+    description: |
+      Accumulated movement (in sensor counts) required to confirm a direction.
+
+  timeout-ms:
+    type: int
+    default: 400
+    description: |
+      Inactivity timeout (ms) after first direction is captured.
+      Resets the second-direction accumulator so the user can make a clean stroke.

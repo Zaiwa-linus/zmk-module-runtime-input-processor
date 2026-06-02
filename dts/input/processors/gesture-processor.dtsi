@@ -1,0 +1,10 @@
+/ {
+    input_processors {
+        gesture_proc: gesture_input_processor {
+            compatible = "zmk,input-processor-gesture";
+            #input-processor-cells = <0>;
+            threshold = <200>;
+            timeout-ms = <400>;
+        };
+    };
+};
